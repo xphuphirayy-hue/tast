@@ -1,277 +1,294 @@
-    local _ENV = (getgenv or getrenv or getfenv)()
+local _ENV = (getgenv or getrenv or getfenv)()
 
+-- ================== SERVICES ==================
+local Players           = game:GetService("Players")
+local RunService        = game:GetService("RunService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local VirtualUser       = game:GetService("VirtualUser")
 
-    -- ================== SERVICES ==================
-    local Players             = game:GetService("Players")
-    local TweenService        = game:GetService("TweenService")
-    local RunService          = game:GetService("RunService")
-    local ReplicatedStorage   = game:GetService("ReplicatedStorage")
-    local VirtualUser         = game:GetService("VirtualUser")
-    local VirtualInputManager = game:GetService("VirtualInputManager")
-    local UserInputService    = game:GetService("UserInputService")
-    local CollectionService   = game:GetService("CollectionService")
-    local TeleportService     = game:GetService("TeleportService")
-    local CoreGui             = game:GetService("CoreGui")
+-- ================== PLAYER ==================
+local Player = Players.LocalPlayer
+local function GetChar()
+    return Player.Character or Player.CharacterAdded:Wait()
+end
 
-    -- ================== PLAYER ==================
-    local Player = Players.LocalPlayer
-    local function GetChar() return Player.Character or Player.CharacterAdded:Wait() end
+-- ================== ANTI AFK ==================
+Player.Idled:Connect(function()
+    VirtualUser:CaptureController()
+    VirtualUser:ClickButton2(Vector2.new())
+end)
 
-    -- ================== ANTI AFK ==================
-    Player.Idled:Connect(function()
-        VirtualUser:CaptureController()
-        VirtualUser:ClickButton2(Vector2.new())
-    end)
+-- ================== WORLD ==================
+local Enemies    = workspace:WaitForChild("Enemies")
+local Characters = workspace:WaitForChild("Characters")
 
-    -- ================== WORLD ==================
-    local Enemies    = workspace:WaitForChild("Enemies")
-    local Characters = workspace:WaitForChild("Characters")
-    local SeaBeasts  = workspace:WaitForChild("SeaBeasts")
-    local Map        = workspace:WaitForChild("Map")
-    local Boats      = workspace:WaitForChild("Boats")
-    local ChestModels= workspace:WaitForChild("ChestModels")
-    local WorldOrigin= workspace:WaitForChild("_WorldOrigin")
-    local EnemySpawns= WorldOrigin:WaitForChild("EnemySpawns")
-    local Locations  = WorldOrigin:WaitForChild("Locations")
+-- ================== REMOTES ==================
+local Remotes   = ReplicatedStorage:WaitForChild("Remotes")
+local GunValidator = Remotes:WaitForChild("Validator2")
 
-    -- ================== REMOTES ==================
-    local Remotes   = ReplicatedStorage:WaitForChild("Remotes")
-    local CommF     = Remotes:WaitForChild("CommF_")
-    local CommE     = Remotes:WaitForChild("CommE")
-    local GunValidator = Remotes:WaitForChild("Validator2")
-    local Modules   = ReplicatedStorage:WaitForChild("Modules")
-    local Net       = Modules:WaitForChild("Net")
-    local RE_RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
-    local RE_RegisterHit    = Net:WaitForChild("RE/RegisterHit")
-    local RE_ShootGunEvent  = Net:WaitForChild("RE/ShootGunEvent")
+local Modules   = ReplicatedStorage:WaitForChild("Modules")
+local Net       = Modules:WaitForChild("Net")
 
-    -- ================== DATA ==================
-    local Data      = Player:WaitForChild("Data")
-    local Level     = Data:WaitForChild("Level")
-    local Fragments = Data:WaitForChild("Fragments")
-    local Money     = Data:WaitForChild("Beli")
+local RE_RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
+local RE_RegisterHit    = Net:WaitForChild("RE/RegisterHit")
+local RE_ShootGunEvent  = Net:WaitForChild("RE/ShootGunEvent")
 
-    -- ================== EXPLOIT COMPAT ==================
-    local hookmetamethod   = hookmetamethod   or function(...) return ... end
-    local sethiddenproperty= sethiddenproperty or function(...) return ... end
-    local setupvalue       = setupvalue        or (debug and debug.setupvalue)
-    local getupvalue       = getupvalue        or (debug and debug.getupvalue)
-    local fireproximityprompt = fireproximityprompt or function() end
-    local fireclickdetector   = fireclickdetector   or function() end
+-- ================== DATA ==================
+local Data = Player:WaitForChild("Data")
+
+-- ================== EXPLOIT COMPAT ==================
+local setupvalue = setupvalue or (debug and debug.setupvalue)
+local getupvalue = getupvalue or (debug and debug.getupvalue)
 
 -- ================== FAST ATTACK SYSTEM ==================
-    local SUCCESS_FLAGS, COMBAT_REMOTE_THREAD = pcall(function()
-        return require(Modules.Flags).COMBAT_REMOTE_THREAD or false
-    end)
+local SUCCESS_FLAGS, COMBAT_REMOTE_THREAD = pcall(function()
+    return require(Modules.Flags).COMBAT_REMOTE_THREAD or false
+end)
 
-    local SUCCESS_SHOOT, SHOOT_FUNCTION = pcall(function()
-        return getupvalue(require(ReplicatedStorage.Controllers.CombatController).Attack, 9)
-    end)
+local SUCCESS_SHOOT, SHOOT_FUNCTION = pcall(function()
+    return getupvalue(require(ReplicatedStorage.Controllers.CombatController).Attack, 9)
+end)
 
-    local SUCCESS_HIT, HIT_FUNCTION = pcall(function()
-        return (getmenv or getsenv)(Net)._G.SendHitsToServer
-    end)
+local SUCCESS_HIT, HIT_FUNCTION = pcall(function()
+    return (getmenv or getsenv)(Net)._G.SendHitsToServer
+end)
 
-    local FastAttack = {
-        Distance = 80,
-        attackMobs = true,
-        attackPlayers = false,
-        Equipped = nil,
-        Debounce = 0,
-        ComboDebounce = 0,
-        ShootDebounce = 0,
-        M1Combo = 0,
-        ShootsPerTarget = { ["Dual Flintlock"] = 2 },
-        SpecialShoots = {
-            ["Skull Guitar"] = "TAP",
-            ["Bazooka"]      = "Position",
-            ["Cannon"]       = "Position"
-        },
-        HitboxLimbs = {"RightLowerArm","RightUpperArm","LeftLowerArm","LeftUpperArm","RightHand","LeftHand"}
+local FastAttack = {
+    Distance = 80,
+    attackMobs = true,
+    attackPlayers = false,
+    Equipped = nil,
+    Debounce = 0,
+    ComboDebounce = 0,
+    ShootDebounce = 0,
+    M1Combo = 0,
+
+    ShootsPerTarget = {
+        ["Dual Flintlock"] = 2
+    },
+
+    SpecialShoots = {
+        ["Skull Guitar"] = "TAP",
+        ["Bazooka"]      = "Position",
+        ["Cannon"]       = "Position"
+    },
+
+    HitboxLimbs = {
+        "RightLowerArm","RightUpperArm",
+        "LeftLowerArm","LeftUpperArm",
+        "RightHand","LeftHand"
     }
+}
 
-    function FastAttack:ShootInTarget(TargetPosition)
-        local Equipped = IsAlive(Player.Character) and Player.Character:FindFirstChildOfClass("Tool")
-        if Equipped and Equipped.ToolTip == "Gun" then
-            if Equipped:FindFirstChild("Cooldown") and (tick() - self.ShootDebounce) >= Equipped.Cooldown.Value then
-                if SUCCESS_SHOOT and SHOOT_FUNCTION then
-                    local ShootType = self.SpecialShoots[Equipped.Name] or "Normal"
-                    if ShootType == "Position" or (ShootType == "TAP" and Equipped:FindFirstChild("RemoteEvent")) then
-                        Equipped:SetAttribute("LocalTotalShots", (Equipped:GetAttribute("LocalTotalShots") or 0) + 1)
-                        GunValidator:FireServer(self:GetValidator2())
-                        if ShootType == "TAP" then
-                            Equipped.RemoteEvent:FireServer("TAP", TargetPosition)
-                        else
-                            RE_ShootGunEvent:FireServer(TargetPosition)
-                        end
-                        self.ShootDebounce = tick()
-                    end
-                end
-            end
+function FastAttack:CheckStun(ToolTip, Character, Humanoid)
+    local Stun = Character:FindFirstChild("Stun")
+
+    if Humanoid.Sit and (ToolTip == "Sword" or ToolTip == "Melee" or ToolTip == "Gun") then
+        return false
+    end
+
+    if Stun and Stun.Value > 0 then
+        return false
+    end
+
+    return true
+end
+
+function FastAttack:Process(assert, list, BladeHits, Position, Distance)
+    if not assert then return end
+
+    for _, Enemy in list:GetChildren() do
+
+        local BasePart =
+            Enemy:FindFirstChild(
+                self.HitboxLimbs[
+                    math.random(#self.HitboxLimbs)
+                ]
+            ) or Enemy.PrimaryPart
+
+        if not BasePart then
+            continue
         end
-    end
 
-    function FastAttack:CheckStun(ToolTip, Character, Humanoid)
-        local Stun = Character:FindFirstChild("Stun")
-        if Humanoid.Sit and (ToolTip == "Sword" or ToolTip == "Melee" or ToolTip == "Gun") then return false end
-        if Stun and Stun.Value > 0 then return false end
-        return true
-    end
+        if Enemy ~= Player.Character
+        and Enemy:FindFirstChild("CharacterReady") then
 
-    function FastAttack:Process(assert, is_Enemies, BladeHits, Position, Distance)
-        if not assert then return end
-        local HitboxLimbs = self.HitboxLimbs
-        for _, Enemy in is_Enemies:GetChildren() do
-            local BasePart = Enemy:FindFirstChild(HitboxLimbs[math.random(#HitboxLimbs)]) or Enemy.PrimaryPart
-            if not BasePart then continue end
-            if Enemy ~= Player.Character and Enemy:FindFirstChild("CharacterReady") then
-                if IsAlive(Enemy) and (Position - BasePart.Position).Magnitude <= Distance then
-                    if not self.EnemyRootPart then
-                        self.EnemyRootPart = BasePart
-                    else
-                        table.insert(BladeHits, {Enemy, BasePart})
-                    end
-                end
-            end
-        end
-    end
+            if IsAlive(Enemy)
+            and (Position - BasePart.Position).Magnitude <= Distance then
 
-    function FastAttack:GetAllBladeHits(Character, Distance)
-        local Position = Character:GetPivot().Position
-        local BladeHits = {}
-        Distance = Distance or self.Distance
-        self:Process(self.attackMobs, Enemies, BladeHits, Position, Distance)
-        self:Process(self.attackPlayers, Characters, BladeHits, Position, Distance)
-        return BladeHits
-    end
-
-    function FastAttack:GetClosestEnemyPosition(Character, Distance)
-        local Distance2, Closest = math.huge
-        for enemy_1 = 1, 1 do
-            local BladeHits = self:GetAllBladeHits(Character, Distance)
-            if not BladeHits[enemy_1] then break end
-            local Magnitude = Closest and (Closest.Position - BladeHits[enemy_1][2].Position).Magnitude or Distance2
-            if Magnitude <= Distance2 then
-                Distance2, Closest = Magnitude, BladeHits[enemy_1][2]
-            end
-        end
-        return Closest and Closest.Position or nil
-    end
-
-    function FastAttack:GetGunHits(Character, Distance)
-        local GunHits = {}
-        for enemy_2 = 1, 1 do
-            local BladeHits = self:GetAllBladeHits(Character, Distance)
-            if not BladeHits[enemy_2] then break end
-            if not GunHits[1] or (BladeHits[enemy_2][2].Position - GunHits[1].Position).Magnitude <= 10 then
-                table.insert(GunHits, BladeHits[enemy_2][2])
-            end
-        end
-        return GunHits
-    end
-
-    function FastAttack:GetCombo()
-        local Combo = tick() - self.ComboDebounce <= 0.4 and self.M1Combo or 0
-        Combo = Combo >= 2 and 1 or Combo + 1
-        self.ComboDebounce = tick()
-        self.M1Combo = Combo
-        return Combo
-    end
-
-    function FastAttack:UseFruitM1(Character, Equipped, Combo)
-        local Position = Character:GetPivot().Position
-        for _, Enemy in ipairs(Enemies:GetChildren()) do
-            local PrimaryPart = Enemy.PrimaryPart
-            if IsAlive(Enemy) and PrimaryPart and (PrimaryPart.Position - Position).Magnitude <= 50 then
-                local Direction = (PrimaryPart.Position - Position).Unit
-                return Equipped.LeftClickRemote:FireServer(Direction, Combo)
-            end
-        end
-    end
-
-    function FastAttack:UseNormalClick(Humanoid, Character, Cooldown)
-        self.EnemyRootPart = nil
-        local BladeHits = self:GetAllBladeHits(Character)
-        if self.EnemyRootPart then
-            RE_RegisterAttack:FireServer(Cooldown)
-            if SUCCESS_FLAGS and COMBAT_REMOTE_THREAD and SUCCESS_HIT and HIT_FUNCTION then
-                HIT_FUNCTION(self.EnemyRootPart, BladeHits)
-            else
-                RE_RegisterHit:FireServer(self.EnemyRootPart, BladeHits)
-            end
-        end
-    end
-
-    function FastAttack:GetValidator2()
-        local v1=getupvalue(SHOOT_FUNCTION,15); local v2=getupvalue(SHOOT_FUNCTION,13)
-        local v3=getupvalue(SHOOT_FUNCTION,16); local v4=getupvalue(SHOOT_FUNCTION,17)
-        local v5=getupvalue(SHOOT_FUNCTION,14); local v6=getupvalue(SHOOT_FUNCTION,12)
-        local v7=getupvalue(SHOOT_FUNCTION,18)
-        local v8=v6*v2; local v9=(v5*v2+v6*v1)%v3
-        v9=(v9*v3+v8)%v4; v5=math.floor(v9/v3); v6=v9-v5*v3; v7=v7+1
-        setupvalue(SHOOT_FUNCTION,15,v1); setupvalue(SHOOT_FUNCTION,13,v2)
-        setupvalue(SHOOT_FUNCTION,16,v3); setupvalue(SHOOT_FUNCTION,17,v4)
-        setupvalue(SHOOT_FUNCTION,14,v5); setupvalue(SHOOT_FUNCTION,12,v6)
-        setupvalue(SHOOT_FUNCTION,18,v7)
-        return math.floor(v9/v4*16777215), v7
-    end
-
-    function FastAttack:UseGunShoot(Character, Equipped)
-        local ShootType = self.SpecialShoots[Equipped.Name] or "Normal"
-        if ShootType == "Normal" then
-            local Hits = self:GetGunHits(Character, 120)
-            if #Hits > 0 then
-                local Target = Hits[1].Position
-                Equipped:SetAttribute("LocalTotalShots", (Equipped:GetAttribute("LocalTotalShots") or 0) + 1)
-                GunValidator:FireServer(self:GetValidator2())
-                for i = 1, (self.ShootsPerTarget[Equipped.Name] or 1) do
-                    RE_ShootGunEvent:FireServer(Target, Hits)
-                end
-            end
-        elseif ShootType == "Position" or (ShootType == "TAP" and Equipped:FindFirstChild("RemoteEvent")) then
-            local Target = self:GetClosestEnemyPosition(Character, 200)
-            if Target then
-                Equipped:SetAttribute("LocalTotalShots", (Equipped:GetAttribute("LocalTotalShots") or 0) + 1)
-                GunValidator:FireServer(self:GetValidator2())
-                if ShootType == "TAP" then
-                    Equipped.RemoteEvent:FireServer("TAP", Target)
+                if not self.EnemyRootPart then
+                    self.EnemyRootPart = BasePart
                 else
-                    RE_ShootGunEvent:FireServer(Target)
+                    table.insert(BladeHits,{Enemy,BasePart})
                 end
             end
         end
     end
+end
 
-    function FastAttack.attack()
-        if not AutoAttacks or (tick() - AttackCooldown) <= 1 then return end
-        if not IsAlive(Player.Character) then return end
-        local self = FastAttack
-        local Character = Player.Character
-        local Humanoid  = Character.Humanoid
-        local Equipped  = Character:FindFirstChildOfClass("Tool")
-        local ToolTip   = Equipped and Equipped.ToolTip
-        if not Equipped or (ToolTip ~= "Gun" and ToolTip ~= "Melee" and ToolTip ~= "Blox Fruit" and ToolTip ~= "Sword") then return end
-        local Cooldown = Equipped:FindFirstChild("Cooldown") and Equipped.Cooldown.Value or 0
-        if (tick() - self.Debounce) >= Cooldown and self:CheckStun(ToolTip, Character, Humanoid) then
-            local Combo = self:GetCombo()
-            self.Equipped = Equipped
-            self.Debounce = tick()
-            if ToolTip == "Blox Fruit" then
-                local ToolName = Equipped.Name
-                if ToolName == "Ice-Ice" or ToolName == "Light-Light" then
-                    return self:UseNormalClick(Humanoid, Character, Cooldown)
-                elseif Equipped:FindFirstChild("LeftClickRemote") then
-                    return self:UseFruitM1(Character, Equipped, Combo)
-                end
-            elseif ToolTip == "Gun" then
-                if SUCCESS_SHOOT and SHOOT_FUNCTION and AutoShoot then
-                    return self:UseGunShoot(Character, Equipped)
-                end
-            else
-                return self:UseNormalClick(Humanoid, Character, Cooldown)
-            end
+function FastAttack:GetAllBladeHits(Character,Distance)
+
+    local Position = Character:GetPivot().Position
+    local BladeHits = {}
+
+    Distance = Distance or self.Distance
+
+    self:Process(self.attackMobs,Enemies,BladeHits,Position,Distance)
+    self:Process(self.attackPlayers,Characters,BladeHits,Position,Distance)
+
+    return BladeHits
+end
+
+function FastAttack:GetCombo()
+
+    local Combo =
+        tick() - self.ComboDebounce <= 0.4
+        and self.M1Combo
+        or 0
+
+    Combo = Combo >= 2 and 1 or Combo + 1
+
+    self.ComboDebounce = tick()
+    self.M1Combo = Combo
+
+    return Combo
+end
+
+function FastAttack:UseNormalClick(Humanoid,Character,Cooldown)
+
+    self.EnemyRootPart = nil
+
+    local BladeHits =
+        self:GetAllBladeHits(Character)
+
+    if self.EnemyRootPart then
+
+        RE_RegisterAttack:FireServer(Cooldown)
+
+        if SUCCESS_FLAGS
+        and COMBAT_REMOTE_THREAD
+        and SUCCESS_HIT
+        and HIT_FUNCTION then
+
+            HIT_FUNCTION(
+                self.EnemyRootPart,
+                BladeHits
+            )
+
+        else
+
+            RE_RegisterHit:FireServer(
+                self.EnemyRootPart,
+                BladeHits
+            )
         end
     end
+end
 
-    table.insert(Connections, RunService.Stepped:Connect(FastAttack.attack))
-    AutoAttacks = true
+function FastAttack:GetValidator2()
+
+    local v1 = getupvalue(SHOOT_FUNCTION,15)
+    local v2 = getupvalue(SHOOT_FUNCTION,13)
+    local v3 = getupvalue(SHOOT_FUNCTION,16)
+    local v4 = getupvalue(SHOOT_FUNCTION,17)
+    local v5 = getupvalue(SHOOT_FUNCTION,14)
+    local v6 = getupvalue(SHOOT_FUNCTION,12)
+    local v7 = getupvalue(SHOOT_FUNCTION,18)
+
+    local v8 = v6 * v2
+    local v9 = (v5 * v2 + v6 * v1) % v3
+
+    v9 = (v9 * v3 + v8) % v4
+
+    v5 = math.floor(v9 / v3)
+    v6 = v9 - v5 * v3
+
+    v7 = v7 + 1
+
+    setupvalue(SHOOT_FUNCTION,15,v1)
+    setupvalue(SHOOT_FUNCTION,13,v2)
+    setupvalue(SHOOT_FUNCTION,16,v3)
+    setupvalue(SHOOT_FUNCTION,17,v4)
+    setupvalue(SHOOT_FUNCTION,14,v5)
+    setupvalue(SHOOT_FUNCTION,12,v6)
+    setupvalue(SHOOT_FUNCTION,18,v7)
+
+    return math.floor(v9 / v4 * 16777215),v7
+end
+
+function FastAttack.attack()
+
+    if not AutoAttacks
+    or (tick() - AttackCooldown) <= 1 then
+        return
+    end
+
+    if not IsAlive(Player.Character) then
+        return
+    end
+
+    local self = FastAttack
+    local Character = Player.Character
+    local Humanoid = Character.Humanoid
+
+    local Equipped =
+        Character:FindFirstChildOfClass("Tool")
+
+    local ToolTip =
+        Equipped and Equipped.ToolTip
+
+    if not Equipped then
+        return
+    end
+
+    local Cooldown =
+        Equipped:FindFirstChild("Cooldown")
+        and Equipped.Cooldown.Value
+        or 0
+
+    if (tick() - self.Debounce) >= Cooldown
+    and self:CheckStun(ToolTip,Character,Humanoid) then
+
+        local Combo = self:GetCombo()
+
+        self.Equipped = Equipped
+        self.Debounce = tick()
+
+        if ToolTip == "Gun" then
+
+            if SUCCESS_SHOOT and SHOOT_FUNCTION then
+
+                local Target =
+                    self:GetAllBladeHits(Character,120)
+
+                if #Target > 0 then
+
+                    Equipped:SetAttribute(
+                        "LocalTotalShots",
+                        (Equipped:GetAttribute("LocalTotalShots") or 0) + 1
+                    )
+
+                    GunValidator:FireServer(
+                        self:GetValidator2()
+                    )
+
+                    RE_ShootGunEvent:FireServer(
+                        Target[1][2].Position,
+                        Target
+                    )
+                end
+            end
+
+        else
+            self:UseNormalClick(
+                Humanoid,
+                Character,
+                Cooldown
+            )
+        end
+    end
+end
+
+AutoAttacks = true
+
+RunService.Stepped:Connect(FastAttack.attack)
