@@ -1,3 +1,64 @@
+    local _ENV = (getgenv or getrenv or getfenv)()
+
+
+    -- ================== SERVICES ==================
+    local Players             = game:GetService("Players")
+    local TweenService        = game:GetService("TweenService")
+    local RunService          = game:GetService("RunService")
+    local ReplicatedStorage   = game:GetService("ReplicatedStorage")
+    local VirtualUser         = game:GetService("VirtualUser")
+    local VirtualInputManager = game:GetService("VirtualInputManager")
+    local UserInputService    = game:GetService("UserInputService")
+    local CollectionService   = game:GetService("CollectionService")
+    local TeleportService     = game:GetService("TeleportService")
+    local CoreGui             = game:GetService("CoreGui")
+
+    -- ================== PLAYER ==================
+    local Player = Players.LocalPlayer
+    local function GetChar() return Player.Character or Player.CharacterAdded:Wait() end
+
+    -- ================== ANTI AFK ==================
+    Player.Idled:Connect(function()
+        VirtualUser:CaptureController()
+        VirtualUser:ClickButton2(Vector2.new())
+    end)
+
+    -- ================== WORLD ==================
+    local Enemies    = workspace:WaitForChild("Enemies")
+    local Characters = workspace:WaitForChild("Characters")
+    local SeaBeasts  = workspace:WaitForChild("SeaBeasts")
+    local Map        = workspace:WaitForChild("Map")
+    local Boats      = workspace:WaitForChild("Boats")
+    local ChestModels= workspace:WaitForChild("ChestModels")
+    local WorldOrigin= workspace:WaitForChild("_WorldOrigin")
+    local EnemySpawns= WorldOrigin:WaitForChild("EnemySpawns")
+    local Locations  = WorldOrigin:WaitForChild("Locations")
+
+    -- ================== REMOTES ==================
+    local Remotes   = ReplicatedStorage:WaitForChild("Remotes")
+    local CommF     = Remotes:WaitForChild("CommF_")
+    local CommE     = Remotes:WaitForChild("CommE")
+    local GunValidator = Remotes:WaitForChild("Validator2")
+    local Modules   = ReplicatedStorage:WaitForChild("Modules")
+    local Net       = Modules:WaitForChild("Net")
+    local RE_RegisterAttack = Net:WaitForChild("RE/RegisterAttack")
+    local RE_RegisterHit    = Net:WaitForChild("RE/RegisterHit")
+    local RE_ShootGunEvent  = Net:WaitForChild("RE/ShootGunEvent")
+
+    -- ================== DATA ==================
+    local Data      = Player:WaitForChild("Data")
+    local Level     = Data:WaitForChild("Level")
+    local Fragments = Data:WaitForChild("Fragments")
+    local Money     = Data:WaitForChild("Beli")
+
+    -- ================== EXPLOIT COMPAT ==================
+    local hookmetamethod   = hookmetamethod   or function(...) return ... end
+    local sethiddenproperty= sethiddenproperty or function(...) return ... end
+    local setupvalue       = setupvalue        or (debug and debug.setupvalue)
+    local getupvalue       = getupvalue        or (debug and debug.getupvalue)
+    local fireproximityprompt = fireproximityprompt or function() end
+    local fireclickdetector   = fireclickdetector   or function() end
+
 -- ================== FAST ATTACK SYSTEM ==================
     local SUCCESS_FLAGS, COMBAT_REMOTE_THREAD = pcall(function()
         return require(Modules.Flags).COMBAT_REMOTE_THREAD or false
