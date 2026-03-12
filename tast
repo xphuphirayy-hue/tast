@@ -82,6 +82,9 @@ end
 --========================
 -- KICK ถ้า KEY ผิด/หมดอายุ
 --========================
+local Players = game:GetService("Players")
+local player = Players.LocalPlayer
+
 local valid, msg = checkKey()
 
 if not valid then
@@ -91,10 +94,8 @@ end
 
 if getgenv().mode == "Oneclick" then
     -- Oneclick script here
-    local Players = game:GetService("Players")
     local Stats = game:GetService("Stats")
 
-    local player = Players.LocalPlayer
     local PlayerGui = player:WaitForChild("PlayerGui")
 
     --========================
